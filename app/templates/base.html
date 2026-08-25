@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title or "语音智能评测" }}</title><link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+</head>
+<body>
+  <header class="topbar"><div class="brand">语音群 AI 提效评测</div><nav><a href="/">总览</a><a href="/samples">样例</a><a href="/import">导入</a><a href="/report">报告</a></nav></header>
+  <main class="container">{% block content %}{% endblock %}</main>
+</body>
+</html>

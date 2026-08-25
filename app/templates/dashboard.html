@@ -1,0 +1,5 @@
+{% extends "base.html" %}{% block content %}
+<section class="hero"><div><p class="eyebrow">MULTI-SCENE EVALUATION</p><h1>让每条语音样例都能被解释</h1><p>导入、计算、诊断、修订和导出在一个可追溯工作流里完成。</p></div><a class="button" href="/import">导入样例</a></section>
+<section class="cards"><div class="card"><span>样例总数</span><strong>{{ total }}</strong></div>{% for name, count in counts.items() %}<div class="card"><span>{{ name }}</span><strong>{{ count }}</strong></div>{% endfor %}</section>
+<section class="panel"><h2>最终结论</h2><div class="chips">{% for name, count in conclusions.items() %}<span class="chip">{{ name }} {{ count }}</span>{% else %}<span class="muted">尚未运行评测</span>{% endfor %}</div><p class="muted">建议先运行 <code>python scripts/generate_samples.py</code>，再通过 API 导入并评测。</p></section>
+{% endblock %}

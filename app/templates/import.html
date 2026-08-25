@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block content %}
+<div class="page-heading"><div><p class="eyebrow">IMPORT</p><h1>导入测试样例</h1><p class="muted">支持 JSON、JSONL、CSV、TXT。导入后运行评测即可生成诊断。</p></div></div>
+<section class="panel"><form id="import-form" class="stack"><input type="file" name="file" accept=".json,.jsonl,.csv,.txt" required><button class="button" type="submit">上传并校验</button><pre id="import-result" class="result"></pre></form></section><script src="{{ url_for('static', path='app.js') }}"></script>
+{% endblock %}

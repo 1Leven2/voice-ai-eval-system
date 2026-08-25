@@ -1,0 +1,125 @@
+from __future__ import annotations
+
+import csv
+import io
+import json
+from html import escape
+from typing import Any
+
+from .audio import audio_metadata_from_bytes
+from .db import Database
+from .diagnostics import optional_llm_diagnosis, rule_diagnosis
+from .metrics import calculate_metrics
+from .models import validate_samples
+
+
+def parse_import_bytes(content: bytes, filename: str = "samples.json") -> list[dict[str, Any]]:
+    suffix = filename.lower().rsplit(".", 1)[-1] if "." in filename else "json"
+    if suffix in {"wav", "mp3"}:
+        sample_id = filename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].rsplit(".", 1)[0]
+        return [
+            {
+                "sample_id": sample_id or "audio-sample",
+                "scenario_type": "audio_unclassified",
+                "task_types": ["asr"],
+                "input_data": {"audio_file": filename, "file_size_bytes": len(content)},
+                "audio_info": audio_metadata_from_bytes(content, filename),
+                "reference": "-",
+                "system_output": "-",
+            }
+        ]
+    text = content.decode("utf-8-sig")
+    if suffix in {"json", "jsonl"}:
+        if suffix == "jsonl":
+            return [json.loads(line) for line in text.splitlines() if line.strip()]
+        payload = json.loads(text)
+        return payload.get("samples", payload) if isinstance(payload, dict) else payload
+    if suffix == "csv":
+        rows: list[dict[str, Any]] = []
+        for row in csv.DictReader(io.StringIO(text)):
+            parsed: dict[str, Any] = {}
+            for key, value in row.items():
+                value = value or ""
+                if key == "task_types":
+                    try:
+                        parsed[key] = json.loads(value) if value.startswith("[") else [item for item in value.split("|") if item]
+                    except json.JSONDecodeError:
+                        parsed[key] = [item for item in value.split("|") if item]
+                elif value.startswith("{") or value.startswith("["):
+                    try:
+                        parsed[key] = json.loads(value)
+                    except json.JSONDecodeError:
+                        parsed[key] = value
+                else:
+                    parsed[key] = value
+            rows.append(parsed)
+        return rows
+    if suffix == "txt":
+        return [
+            {
+                "sample_id": f"txt-{index}",
+                "scenario_type": "interaction",
+                "task_types": ["asr"],
+                "input_data": {"text": line},
+                "reference": {"text": line},
+                "system_output": {"text": line},
+            }
+            for index, line in enumerate(text.splitlines(), start=1)
+            if line.strip()
+        ]
+    raise ValueError(f"不支持的文件格式: .{suffix}")
+
+
+class EvaluationService:
+    def __init__(self, database: Database):
+        self.database = database
+
+    def import_samples(self, samples: list[dict[str, Any]]) -> dict[str, Any]:
+        accepted, errors = validate_samples(samples)
+        if accepted:
+            self.database.upsert_samples(accepted)
+        return {"accepted": len(accepted), "rejected": len(samples) - len(accepted), "errors": [error.to_dict() for error in errors]}
+
+    def evaluate_all(self) -> dict[str, Any]:
+        samples = self.database.list_samples()
+        for sample in samples:
+            metrics = calculate_metrics(sample)
+            diagnosis = optional_llm_diagnosis(sample, metrics, rule_diagnosis(sample, metrics))
+            sample["metrics"] = metrics
+            sample.update(diagnosis)
+            self.database.update_sample(sample)
+        return {"evaluated": len(samples), "failed": 0}
+
+    def revise(self, sample_id: str, changes: dict[str, Any], editor: str) -> dict[str, Any] | None:
+        before = self.database.get_sample(sample_id)
+        if before is None:
+            return None
+        after = dict(before)
+        for field in ("diagnosis", "evidence", "impact", "suggestions", "final_conclusion"):
+            if field in changes:
+                after[field] = changes[field]
+        after["human_revision"] = {"editor": editor, "changed_fields": sorted(set(changes) & set(after))}
+        self.database.save_revision(sample_id, before, after, editor)
+        self.database.update_sample(after)
+        return after
+
+    def export_rows(self) -> list[dict[str, Any]]:
+        return self.database.list_samples()
+
+    def export_csv(self) -> str:
+        rows = self.export_rows()
+        fields = ["sample_id", "scenario_type", "task_types", "metrics", "diagnosis", "evidence", "impact", "suggestions", "final_conclusion"]
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=fields)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: json.dumps(row.get(field), ensure_ascii=False) if isinstance(row.get(field), (dict, list)) else row.get(field, "-") for field in fields})
+        return output.getvalue()
+
+    def export_html(self) -> str:
+        rows = self.export_rows()
+        table_rows = "".join(
+            "<tr>" + "".join(f"<td>{escape(str(row.get(field, '-')))}</td>" for field in ("sample_id", "scenario_type", "final_conclusion", "diagnosis")) + "</tr>"
+            for row in rows
+        )
+        return "<!doctype html><html lang='zh-CN'><meta charset='utf-8'><title>语音评测报告</title><style>body{font-family:system-ui;margin:2rem}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:.5rem;text-align:left}</style><h1>多场景语音智能体验评测报告</h1><table><thead><tr><th>ID</th><th>场景</th><th>结论</th><th>诊断</th></tr></thead><tbody>" + table_rows + "</tbody></table></html>"

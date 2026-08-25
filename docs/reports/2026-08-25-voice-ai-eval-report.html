@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>多场景语音智能体验评测与问题分析系统研发 AI 提效实践报告</title><style>body{font-family:system-ui,-apple-system,"PingFang SC",sans-serif;max-width:980px;margin:0 auto;padding:3rem 1.5rem;line-height:1.7;color:#172033;background:#f7f8fc}main{background:#fff;padding:2.5rem;border-radius:18px;box-shadow:0 10px 36px #17203312}h1{line-height:1.2}h2{margin-top:2.2rem;border-bottom:1px solid #e6eaf2;padding-bottom:.4rem}table{border-collapse:collapse;width:100%}th,td{border:1px solid #dfe4ee;padding:.55rem;text-align:left}code{background:#f0f2f8;padding:.1rem .3rem;border-radius:4px}pre{background:#f0f2f8;padding:1rem;overflow:auto;border-radius:8px}.tag{display:inline-block;background:#eef0ff;color:#4d56bd;border-radius:99px;padding:.2rem .6rem;margin:.2rem}</style></head><body><main>
+<h1>多场景语音智能体验评测与问题分析系统研发 AI 提效实践报告</h1>
+<h2>一、系统总体方案</h2><p>系统使用 FastAPI、SQLite 和 Jinja2，完成“导入 → 校验 → 指标计算 → AI/规则诊断 → 人工修订 → 结构化导出”的完整链路。内置样例为合成数据，同时支持外部 JSON/CSV/TXT/WAV/MP3 文件导入。</p>
+<h2>二、测试场景与样例设计</h2><table><tr><th>场景</th><th>数量</th><th>覆盖</th></tr><tr><td>语音交互</td><td>40</td><td>单轮、多轮、ASR/NLU</td></tr><tr><td>语音翻译</td><td>30</td><td>中英互译、术语一致性</td></tr><tr><td>车载座舱</td><td>30</td><td>媒体/导航、安全边界</td></tr><tr><td>真实音频索引</td><td>43</td><td>WAV 元数据与文件名参考标签</td></tr></table>
+<h2>三、指标与证据</h2><p>CER/WER、关键词召回、意图准确率、槽位匹配率、术语一致性、延迟和座舱安全规则均可复算。没有原始证据时输出“证据不足”，不补造事实。</p>
+<h2>四、AI 辅助研发过程</h2><p>AI 参与需求拆解、测试先行、模块草拟、调试和文档整理；人工验证了指标、证据、车载安全结论和完整运行结果。</p>
+<h2>五、运行结果</h2><p><span class="tag">导入 143 条</span><span class="tag">处理失败 0 条</span><span class="tag">测试 23 passed</span></p><p>其中 100 条为合成评测样例，43 条为真实音频索引。完整 JSON/CSV/HTML 结果位于 <code>data/exports/</code>。</p>
+<h2>六、不足与提效总结</h2><p>内置数据为合成结构化样例；真实 WAV 目前可导入并解析元数据，尚未接入 ASR 转写，MP3 时长无外部解码器时保持“ - ”。系统也尚无认证和多租户能力。AI 缩短了需求拆解、样例生成、测试补齐、兼容性调试和报告编写时间；指标阈值、安全结论和最终报告仍需人工把关。</p>
+</main></body></html>
