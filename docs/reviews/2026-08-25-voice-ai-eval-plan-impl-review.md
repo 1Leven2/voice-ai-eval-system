@@ -19,7 +19,7 @@
 
 ## 验证证据
 
-执行 `pytest -q`：`20 passed`。
+执行 `pytest -q`：`36 passed`。
 
 执行 `python3 scripts/run_demo.py`：导入 100 条、评测 100 条、失败数为 0，并生成 JSON/CSV/HTML 三种文件。
 
@@ -32,6 +32,8 @@
 - 由于当前环境的 AnyIO 线程池与同步端点组合会挂起，接口测试使用 `httpx.AsyncClient + ASGITransport`；生产 API 端点已统一为 async，不影响实际 Uvicorn 运行。
 - 模板 PDF 没有被程序改写；报告采用 Markdown 和 HTML，保留原模板作为参考副本。
 - WAV 文件使用标准库提取时长、采样率、声道和采样宽度；MP3 保留文件身份和大小，无法无依赖解码的字段填写 `-`。
+- 缺失字段统一使用 `-`，输入可通过启发式规则补充场景和任务标签；LLM 返回值经过结构校验。
+- 普通用户可通过 `start.bat`、`start.sh` 或 `scripts/start.py` 一键准备数据并启动浏览器。
 
 ## 结论
 
