@@ -49,7 +49,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/evaluate")
-    async def evaluate() -> dict[str, int]:
+    async def evaluate() -> dict[str, Any]:
         return app.state.service.evaluate_all()
 
     @app.get("/api/samples")

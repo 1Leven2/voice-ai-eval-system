@@ -65,10 +65,69 @@ async def test_one_hundred_sample_acceptance_flow(tmp_path):
         imported = await client.post("/api/import", json={"samples": generate_samples()})
         assert imported.json()["accepted"] == 100
         evaluated = await client.post("/api/evaluate")
-        assert evaluated.json() == {"evaluated": 100, "failed": 0}
+        assert evaluated.json() == {"evaluated": 100, "failed": 0, "failures": []}
         exported = await client.get("/api/export/html")
         assert exported.status_code == 200
         assert "sample-100" in exported.text
+
+
+@pytest.mark.anyio
+async def test_one_malformed_sample_does_not_abort_the_evaluation_batch(tmp_path):
+    """Externally supplied files can carry wrong types; the batch must still finish."""
+    transport = httpx.ASGITransport(app=create_app(tmp_path / "eval.db"))
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        payload = {
+            "samples": [
+                {
+                    "sample_id": "ok-1",
+                    "scenario_type": "interaction",
+                    "task_types": ["nlu"],
+                    "reference": {"text": "打开空调", "intent": "a", "slots": {"x": "1"}},
+                    "system_output": {"text": "打开空调", "intent": "a", "slots": {"x": "1"}},
+                },
+                {
+                    "sample_id": "bad-1",
+                    "scenario_type": "interaction",
+                    "task_types": ["nlu"],
+                    "reference": {"text": "打开空调", "intent": "a", "slots": "not-a-dict"},
+                    "system_output": {"text": "打开空调", "intent": "a"},
+                },
+            ]
+        }
+        assert (await client.post("/api/import", json=payload)).json()["accepted"] == 2
+
+        evaluated = await client.post("/api/evaluate")
+        assert evaluated.status_code == 200
+        body = evaluated.json()
+        assert body["evaluated"] == 2
+        assert body["failed"] == 0
+
+        detail = await client.get("/api/samples/ok-1")
+        assert detail.json()["final_conclusion"] == "通过"
+
+
+@pytest.mark.anyio
+async def test_evaluation_failure_is_reported_and_persisted(tmp_path, monkeypatch):
+    transport = httpx.ASGITransport(app=create_app(tmp_path / "eval.db"))
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        await client.post("/api/import", json={"samples": generate_samples(2)})
+
+        from app import services
+
+        def explode(sample):
+            if sample["sample_id"] == "sample-002":
+                raise RuntimeError("boom")
+            return {}
+
+        monkeypatch.setattr(services, "calculate_metrics", explode)
+
+        body = (await client.post("/api/evaluate")).json()
+        assert body == {
+            "evaluated": 1,
+            "failed": 1,
+            "failures": [{"sample_id": "sample-002", "message": "RuntimeError: boom"}],
+        }
+        assert "评测失败" in (await client.get("/api/samples/sample-002")).json()["diagnosis"]
 
 
 @pytest.mark.anyio

@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import logging
 from html import escape
 from typing import Any
 
@@ -11,6 +12,8 @@ from .db import Database
 from .diagnostics import optional_llm_diagnosis, rule_diagnosis
 from .metrics import calculate_metrics
 from .models import validate_samples
+
+logger = logging.getLogger(__name__)
 
 
 def parse_import_bytes(content: bytes, filename: str = "samples.json") -> list[dict[str, Any]]:
@@ -85,13 +88,35 @@ class EvaluationService:
 
     def evaluate_all(self) -> dict[str, Any]:
         samples = self.database.list_samples()
+        evaluated = 0
+        failures: list[dict[str, str]] = []
         for sample in samples:
-            metrics = calculate_metrics(sample)
-            diagnosis = optional_llm_diagnosis(sample, metrics, rule_diagnosis(sample, metrics))
-            sample["metrics"] = metrics if metrics else "-"
-            sample.update(diagnosis)
+            sample_id = str(sample.get("sample_id", "-"))
+            try:
+                metrics = calculate_metrics(sample)
+                diagnosis = optional_llm_diagnosis(sample, metrics, rule_diagnosis(sample, metrics))
+                sample["metrics"] = metrics if metrics else "-"
+                sample.update(diagnosis)
+                self.database.update_sample(sample)
+                evaluated += 1
+            except Exception as exc:  # one malformed record must not abort the batch
+                logger.exception("样例评测失败: %s", sample_id)
+                failures.append({"sample_id": sample_id, "message": f"{type(exc).__name__}: {exc}"})
+                self._mark_evaluation_failure(sample, exc)
+        return {"evaluated": evaluated, "failed": len(failures), "failures": failures}
+
+    def _mark_evaluation_failure(self, sample: dict[str, Any], exc: Exception) -> None:
+        """Persist the failure on the record so it stays visible in exports."""
+        try:
+            sample["metrics"] = "-"
+            sample["diagnosis"] = f"评测失败：{type(exc).__name__}"
+            sample["evidence"] = "-"
+            sample["impact"] = "该样例未完成评测，无法给出影响判断"
+            sample["suggestions"] = "检查该样例的字段结构是否符合导入规范"
+            sample["final_conclusion"] = "需关注"
             self.database.update_sample(sample)
-        return {"evaluated": len(samples), "failed": 0}
+        except Exception:
+            logger.exception("无法保存评测失败状态: %s", sample.get("sample_id", "-"))
 
     def revise(self, sample_id: str, changes: dict[str, Any], editor: str) -> dict[str, Any] | None:
         before = self.database.get_sample(sample_id)
