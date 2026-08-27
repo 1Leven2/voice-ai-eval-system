@@ -24,3 +24,8 @@ def test_intent_slot_match_returns_separate_scores():
 
 def test_terminology_consistency_compares_required_terms():
     assert terminology_consistency("Use latency and first token", ["latency", "first token", "WER"]) == 2 / 3
+
+
+def test_intent_slot_match_tolerates_non_dict_slots_from_external_files():
+    result = intent_slot_match({"intent": "a", "slots": "not-a-dict"}, {"intent": "a"})
+    assert result == {"intent_accuracy": 1.0, "slot_match_rate": 1.0}

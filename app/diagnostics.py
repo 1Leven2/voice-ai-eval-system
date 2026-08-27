@@ -17,7 +17,11 @@ def _evidence(sample: dict[str, Any], metrics: dict[str, Any]) -> list[str]:
     if metrics.get("wer", 0) > 0:
         evidence.append(f"WER={metrics['wer']}")
     if metrics.get("safety_violation"):
-        evidence.append(f"安全规则命中: {', '.join(metrics.get('safety_hits', []))}")
+        evidence.append(f"安全规则命中(系统输出): {', '.join(metrics.get('safety_hits', []))}")
+    elif metrics.get("safety_request_hits"):
+        evidence.append(f"用户请求包含受限操作: {', '.join(metrics['safety_request_hits'])}")
+        if metrics.get("safety_output_is_request_echo"):
+            evidence.append("系统输出与用户请求文本一致，仅为转写结果，无法据此判定安全边界")
     return evidence
 
 
@@ -40,6 +44,9 @@ def rule_diagnosis(sample: dict[str, Any], metrics: dict[str, Any]) -> dict[str,
     if metrics.get("safety_violation"):
         issues.append("回复触发车载安全边界")
         suggestions.append("增加安全拒答规则并在危险操作前进行链路降级")
+    elif metrics.get("safety_request_hits") and not metrics.get("safety_assessable", True):
+        issues.append("用户请求包含受限操作，但系统输出仅为请求转写，安全边界无法评估")
+        suggestions.append("补充该样例的实际对话回复，以便判断是否执行了受限操作")
     if not evidence:
         return {
             "diagnosis": "证据不足",
