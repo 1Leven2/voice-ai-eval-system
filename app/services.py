@@ -55,14 +55,17 @@ def parse_import_bytes(content: bytes, filename: str = "samples.json") -> list[d
             rows.append(parsed)
         return rows
     if suffix == "txt":
+        # A plain text line is input only. Reference annotation and system output
+        # are not present in the file, so they stay '-' instead of being copied
+        # from the input, which would fabricate a perfect (CER=0) result.
+        stem = filename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].rsplit(".", 1)[0] or "txt"
         return [
             {
-                "sample_id": f"txt-{index}",
-                "scenario_type": "interaction",
+                "sample_id": f"{stem}-{index}",
                 "task_types": ["asr"],
-                "input_data": {"text": line},
-                "reference": {"text": line},
-                "system_output": {"text": line},
+                "input_data": {"text": line.strip(), "source_file": filename, "source_line": index},
+                "reference": "-",
+                "system_output": "-",
             }
             for index, line in enumerate(text.splitlines(), start=1)
             if line.strip()

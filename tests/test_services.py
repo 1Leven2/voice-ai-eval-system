@@ -20,8 +20,18 @@ def test_csv_import_decodes_json_task_types_and_nested_fields():
 
 def test_txt_import_creates_traceable_minimal_samples():
     rows = parse_import_bytes("打开空调\n播放音乐\n".encode(), "commands.txt")
-    assert rows[0]["sample_id"] == "txt-1"
-    assert rows[1]["reference"]["text"] == "播放音乐"
+    assert rows[0]["sample_id"] == "commands-1"
+    assert rows[1]["input_data"]["text"] == "播放音乐"
+    assert rows[1]["input_data"]["source_line"] == 2
+
+
+def test_txt_import_does_not_fabricate_reference_or_system_output():
+    """A TXT file carries input only; copying it into both sides would invent a perfect score."""
+    rows = parse_import_bytes("打开空调\n".encode(), "commands.txt")
+    assert rows[0]["reference"] == "-"
+    assert rows[0]["system_output"] == "-"
+    assert calculate_metrics(rows[0]) == {}
+    assert rule_diagnosis(rows[0], {})["diagnosis"] == "证据不足"
 
 
 def test_safety_diagnosis_marks_forbidden_action_as_failure():
