@@ -5,3 +5,10 @@ __pycache__/
 data/*.db
 data/imports/
 data/exports/
+
+# Real audio recordings and the index derived from them are kept local only:
+# filenames carry device identifiers and capture timestamps, and the content is
+# real user audio. Regenerate the index with scripts/import_audios.py.
+data/audios/
+data/audio_samples.jsonl
+.serena/
