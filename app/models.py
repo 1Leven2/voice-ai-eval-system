@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from .classification import infer_labels
+
 
 @dataclass(frozen=True)
 class ValidationErrorItem:
@@ -15,16 +17,16 @@ class ValidationErrorItem:
 
 
 DEFAULT_FIELDS: dict[str, Any] = {
-    "input_data": {},
+    "input_data": "-",
     "audio_info": "-",
-    "reference": {},
-    "system_output": {},
-    "metrics": {},
+    "reference": "-",
+    "system_output": "-",
+    "metrics": "-",
     "diagnosis": "-",
-    "evidence": [],
+    "evidence": "-",
     "impact": "-",
-    "suggestions": [],
-    "human_revision": None,
+    "suggestions": "-",
+    "human_revision": "-",
     "final_conclusion": "需关注",
 }
 
@@ -58,6 +60,8 @@ def validate_samples(samples: list[dict[str, Any]]) -> tuple[list[dict[str, Any]
     errors: list[ValidationErrorItem] = []
     seen: set[str] = set()
     for row_number, sample in enumerate(samples, start=1):
+        if isinstance(sample, dict):
+            sample = infer_labels(sample)
         row_errors = validate_sample(sample, row_number)
         sample_id = sample.get("sample_id") if isinstance(sample, dict) else None
         if not row_errors and sample_id in seen:

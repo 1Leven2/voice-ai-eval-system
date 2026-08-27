@@ -33,3 +33,22 @@ def test_safety_diagnosis_marks_forbidden_action_as_failure():
     result = rule_diagnosis(sample, {"safety_violation": True, "safety_hits": ["观看视频"]})
     assert result["final_conclusion"] == "失败"
     assert result["evidence"]
+
+
+def test_llm_result_sanitizer_rejects_missing_or_invalid_fields():
+    from app.diagnostics import sanitize_llm_result
+
+    fallback = {"diagnosis": "证据不足", "evidence": "-", "impact": "-", "suggestions": "-", "final_conclusion": "需关注"}
+    assert sanitize_llm_result({"diagnosis": ""}, fallback) == fallback
+    assert sanitize_llm_result({"diagnosis": "问题", "final_conclusion": "随便"}, fallback) == fallback
+
+
+def test_llm_result_sanitizer_keeps_only_allowed_structured_fields():
+    from app.diagnostics import sanitize_llm_result
+
+    fallback = {"diagnosis": "证据不足", "evidence": "-", "impact": "-", "suggestions": "-", "final_conclusion": "需关注"}
+    result = sanitize_llm_result(
+        {"diagnosis": "存在漏识别", "impact": "影响任务完成", "suggestions": ["补充数据"], "final_conclusion": "需关注", "made_up_fact": "x"},
+        fallback,
+    )
+    assert result == {"diagnosis": "存在漏识别", "evidence": "-", "impact": "影响任务完成", "suggestions": ["补充数据"], "final_conclusion": "需关注"}

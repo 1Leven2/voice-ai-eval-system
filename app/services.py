@@ -85,7 +85,7 @@ class EvaluationService:
         for sample in samples:
             metrics = calculate_metrics(sample)
             diagnosis = optional_llm_diagnosis(sample, metrics, rule_diagnosis(sample, metrics))
-            sample["metrics"] = metrics
+            sample["metrics"] = metrics if metrics else "-"
             sample.update(diagnosis)
             self.database.update_sample(sample)
         return {"evaluated": len(samples), "failed": 0}

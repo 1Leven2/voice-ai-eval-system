@@ -43,9 +43,9 @@ def rule_diagnosis(sample: dict[str, Any], metrics: dict[str, Any]) -> dict[str,
     if not evidence:
         return {
             "diagnosis": "证据不足",
-            "evidence": [],
+            "evidence": "-",
             "impact": "无法基于当前原始数据判断影响",
-            "suggestions": [],
+            "suggestions": "-",
             "final_conclusion": "需关注",
         }
     return {
@@ -54,6 +54,31 @@ def rule_diagnosis(sample: dict[str, Any], metrics: dict[str, Any]) -> dict[str,
         "impact": "可能影响任务完成率、可理解性或车载安全" if issues else "当前样例达到规则阈值",
         "suggestions": suggestions,
         "final_conclusion": "失败" if metrics.get("safety_violation") else ("需关注" if issues else "通过"),
+    }
+
+
+def sanitize_llm_result(candidate: Any, fallback: dict[str, Any]) -> dict[str, Any]:
+    """Keep only safe, structured diagnosis fields from an LLM response."""
+    if not isinstance(candidate, dict):
+        return fallback
+    diagnosis = candidate.get("diagnosis")
+    impact = candidate.get("impact", "-")
+    suggestions = candidate.get("suggestions", "-")
+    conclusion = candidate.get("final_conclusion")
+    if not isinstance(diagnosis, str) or not diagnosis.strip():
+        return fallback
+    if not isinstance(impact, str) or not impact.strip():
+        return fallback
+    if not (suggestions == "-" or isinstance(suggestions, list) and all(isinstance(item, str) for item in suggestions)):
+        return fallback
+    if conclusion not in {"通过", "需关注", "失败"}:
+        return fallback
+    return {
+        "diagnosis": diagnosis.strip(),
+        "evidence": fallback.get("evidence", "-"),
+        "impact": impact.strip(),
+        "suggestions": suggestions,
+        "final_conclusion": conclusion,
     }
 
 
@@ -85,7 +110,6 @@ def optional_llm_diagnosis(sample: dict[str, Any], metrics: dict[str, Any], fall
             body = json.loads(response.read().decode())
         content = body["choices"][0]["message"]["content"]
         parsed = json.loads(content)
-        parsed["evidence"] = fallback["evidence"]
-        return parsed
+        return sanitize_llm_result(parsed, fallback)
     except Exception:
         return fallback

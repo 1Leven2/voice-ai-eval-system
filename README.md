@@ -2,7 +2,24 @@
 
 一个可离线运行的 FastAPI Demo，覆盖语音交互、翻译和车载座舱三类场景。系统支持样例导入、指标计算、证据约束诊断、人工修订和结构化报告导出。项目内置样例是合成数据，但外部真实 JSON/CSV/TXT/WAV/MP3 文件可以直接导入。
 
-## 快速开始
+## 普通用户使用（推荐）
+
+如果你不熟悉 Python、API 或命令行：
+
+1. 安装 Python 3.10 或更高版本，并在安装界面勾选“Add Python to PATH”。
+2. Windows 用户双击项目根目录的 `start.bat`；macOS/Linux 用户双击或运行 `start.sh`。
+3. 首次启动会自动安装依赖、准备合成样例和真实音频索引，然后自动打开浏览器。
+4. 在页面中点击“样例”查看数据，点击具体样例的“打开音频文件”试听真实音频，点击“报告”下载结果。
+
+启动脚本也支持：
+
+```bash
+python3 scripts/start.py                 # 自动准备并打开浏览器
+python3 scripts/start.py --no-browser    # 只启动服务，不打开浏览器
+python3 scripts/start.py --no-install    # 不自动安装依赖
+```
+
+## 开发者快速开始
 
 当前环境使用 Python 3.10。若系统已安装依赖，可直接运行：
 
@@ -10,14 +27,15 @@
 python3 -m pip install --user -e '.[dev]'
 python3 scripts/generate_samples.py
 python3 scripts/import_audios.py
-python3 scripts/run_demo.py
+python3 scripts/run_demo.py --reset
 uvicorn app.main:app --reload
 ```
 
 打开 `http://127.0.0.1:8000/`。推荐演示流程：
 
 ```bash
-# `run_demo.py` 已完成导入、指标计算和离线诊断，并写入 data/exports/
+# `run_demo.py` 已完成导入、指标计算和离线诊断，并写入 data/exports/。
+# 首次演示或需要清理旧数据时使用 --reset；普通启动不会清理已有人工修订。
 
 # 查看或下载结果
 curl http://127.0.0.1:8000/api/export/json > data/evaluation.json
@@ -75,3 +93,4 @@ pytest -q
 - `data/samples.jsonl`：100 条可追溯合成样例
 - `data/audios/`：真实 WAV 音频文件
 - `data/audio_samples.jsonl`：由文件名标签生成的真实音频索引
+- `start.sh`、`start.bat`、`scripts/start.py`：面向普通用户的一键启动入口

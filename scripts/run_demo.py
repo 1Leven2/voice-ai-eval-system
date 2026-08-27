@@ -3,6 +3,7 @@
 
 import json
 import sys
+import argparse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,6 +15,9 @@ from app.services import EvaluationService
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="准备合成样例和真实音频索引")
+    parser.add_argument("--reset", action="store_true", help="清空本地 Demo 数据库后重新导入")
+    args = parser.parse_args()
     samples_path = ROOT / "data" / "samples.jsonl"
     if not samples_path.exists():
         from app.sample_data import write_jsonl
@@ -21,7 +25,8 @@ def main() -> None:
         write_jsonl(samples_path)
     samples = [json.loads(line) for line in samples_path.read_text(encoding="utf-8").splitlines() if line.strip()]
     database = Database(ROOT / "data" / "eval.db")
-    database.clear_all()
+    if args.reset:
+        database.clear_all()
     service = EvaluationService(database)
     result = service.import_samples(samples)
     audio_samples, audio_errors = index_audio_directory(ROOT / "data" / "audios", ROOT)

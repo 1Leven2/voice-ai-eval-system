@@ -122,3 +122,14 @@ async def test_sample_detail_page_renders_json_fields(tmp_path):
         response = await client.get("/samples/sample-001")
         assert response.status_code == 200
         assert "量化指标" in response.text
+
+
+@pytest.mark.anyio
+async def test_detail_page_exposes_all_human_revision_fields(tmp_path):
+    transport = httpx.ASGITransport(app=create_app(tmp_path / "eval.db"))
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        await client.post("/api/import", json={"samples": generate_samples(1)})
+        response = await client.get("/samples/sample-001")
+        assert response.status_code == 200
+        for field in ("diagnosis", "evidence", "impact", "suggestions", "final_conclusion", "editor"):
+            assert f'name="{field}"' in response.text
